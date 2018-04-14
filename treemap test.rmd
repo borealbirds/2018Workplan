@@ -1,0 +1,15 @@
+---
+title: "Untitled"
+author: "Nicole Barker"
+date: "April 12, 2018"
+output: html_document
+---
+
+``` {r}
+projs <- read.csv("dataTables/qry_bamPROJECTSflat.csv", header=T)
+projs1 <- projs[c("domainNAME", "themeNAME", "clusterNAME", "PROJECTname", "PROJECTpurpose", "nature", "projectSTATUS", "Proximity")]
+projs1$size <- 1
+
+require(treemap)
+treemap(projs1, index=colnames(projs1[1:5]), vSize="size")
+```

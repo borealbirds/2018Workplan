@@ -1,0 +1,71 @@
+---
+title: "2018 BAM Workplan"
+author: "Projects worked on in 2017-18"
+output:
+  word_document:
+    reference_docx: styles/ProjectHierarchy.docx
+---
+
+**Current as of: `r format(Sys.Date(), "%B %e, %Y")`**
+
+``` {r setup, echo=F, message=F, warning=F}
+source("1.SetupScript.R")
+```
+
+### Load all projects currently documented in our Workplan Database
+
+``` {r}
+projs <- read.csv("dataTables/qry_bamPROJECTSflat.csv", header=T)
+```
+
+### Load all project updates and then subset for those on which I received an update between April 1, 2017 and March 31, 2018
+
+``` {r}
+updates  <- read.csv("dataTables/projectUPDATES.csv", header=T)
+
+#Fix date formate
+tmp1 <- as.character(updates$reportDATE)
+tmp2 <- unlist(lapply(strsplit(tmp1, " ", fixed=T), function(x) {x[1]}))
+tmp3 <- strptime(tmp2, "%m/%d/%Y")
+tmp4 <- as.Date(tmp3)
+
+updates$reportDATE <- tmp4 # bring fixed date back into data.frame
+
+daterange.2017_2018 <- seq(as.Date("2017-04-01"), as.Date("2018-03-31"), by="1 day")
+
+updates.1718 <- updates[updates$reportDATE %in% daterange.2017_2018,]
+
+colnames(updates.1718)[which(colnames(updates.1718) == "PROJECT")] <- "PROJECT.ID"
+
+projects.1718 <- unique(updates.1718$PROJECT.ID)
+rm(tmp1, tmp2, tmp3, tmp4,daterange.2017_2018)
+```
+
+### Subset all projects table for those that were active in the 2017-18 fiscal year
+
+Indicated by those for which Nicole documented a report in the BAM Workplan Database between April 1, 2017 and March 31, 2018
+
+``` {r}
+projs.1718 <- subset(projs, projs$ProjID %in% projects.1718) #subset for active this reporting year
+projs.1718 <- projs.1718[order(projs.1718$domainNAME, projs.1718$themeNAME, projs.1718$clusterNAME, projs.1718$Proximity, projs.1718$PROJECTname),] # reorder 
+```
+
+``` {r}
+projs.s <- split(projs.1718, projs.1718$domainNAME) # split by domain
+```
+
+
+``` {r}
+kable(projs.s[[1]][c("domainNAME", "themeNAME","clusterNAME", "PROJECTname", "PROJECTpurpose")])
+
+kable(projs.s[[2]][c("domainNAME", "themeNAME","clusterNAME", "PROJECTname", "PROJECTpurpose")])
+
+kable(projs.s[[3]][c("domainNAME", "themeNAME","clusterNAME", "PROJECTname", "PROJECTpurpose")])
+
+kable(projs.s[[4]][c("domainNAME", "themeNAME","clusterNAME", "PROJECTname", "PROJECTpurpose")])
+
+
+```
+
+
+

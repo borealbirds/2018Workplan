@@ -1,0 +1,70 @@
+---
+title: "2018 BAM Workplan"
+author: "Table: BAM's Project Structure"
+output:
+  word_document:
+    reference_docx: ../styles/ProjectHierarchy.docx
+---
+
+**Last run: `r format(Sys.Date(), "%B %e, %Y")`**
+
+* BAM pursues **projects** in four parallel but inter-connected **domains**. 
+* Within domains, projects are organized by overarching **themes**
+* Projects working towards the same end goal are clustered into a single **cluster**. 
+* A **Project** it typically discrete, and results in an end result such as a paper or report. 
+
+``` {r setup, echo=F, message=F, warning=F}
+source("1.SetupScript.R")
+```
+
+``` {r}
+projs <- read.csv("dataTables/qry_bamPROJECTSflat.csv", header=T)
+kable(head(projs), row.names=F)
+```
+
+
+
+
+
+``` {r, clean.table, echo=F}
+allproj <- data.frame(Domain=projs$Domain, Theme=projs$Theme, Cluster=projs$Cluster, Project=paste(projs$Project, " [", projs$Lead, "]", sep=""), Status=projs$Project.Status)
+
+allproj <- allproj[!is.na(allproj$Domain),]
+allproj <- allproj[allproj$Domain != "",]
+allproj <- allproj[!duplicated(allproj),]
+allproj <- allproj[!allproj$Status %in% c("ABANDONED", "MERGED", "MORPHED"),]
+
+allproj$Domain <- factor(allproj$Domain, levels=domains$Domain[domains$Domain.Number])
+allproj$Theme <- factor(allproj$Theme, levels=themes$Theme[order(themes$Theme.Order)])
+allproj$Cluster <- factor(allproj$Cluster, levels=clusters$Cluster[order(clusters$Order)])
+
+allproj <- allproj[order(allproj$Domain, allproj$Theme, allproj$Cluster, allproj$Project),]
+
+allproj$Domain <- as.character(allproj$Domain)
+allproj$Theme <- as.character(allproj$Theme)
+allproj$Cluster <- as.character(allproj$Cluster)
+allproj$Project <- as.character(allproj$Project)
+``` 
+
+### All currently active, queued, or proposed projects, including those not led by BAM team members
+
+``` {r, echo=F}
+subproj <- allproj[allproj$Status %in% c("ACTIVE", "IDEA", "ONGOING", "QUEUED", "STALLED", "NOT BAM"),]
+
+subproj$Domain[duplicated(subproj$Domain)] <- " \" "
+subproj$Theme[duplicated(subproj$Theme)] <- " \" "
+subproj$Cluster[duplicated(subproj$Cluster)] <- " \" "
+
+kable(subproj[c("Domain", "Theme", "Cluster", "Project")], row.names=F)
+```
+
+### Historical record of complete and active projects 
+Only includes those summarized on SharePoint
+
+``` {r, echo=F}
+allproj$Domain[duplicated(allproj$Domain)] <- " \" "
+allproj$Theme[duplicated(allproj$Theme)] <- " \" "
+allproj$Cluster[duplicated(allproj$Cluster)] <- " \" "
+
+kable(allproj[c("Domain", "Theme", "Cluster", "Project", "Status")], row.names=F)
+```
