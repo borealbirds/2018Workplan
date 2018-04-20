@@ -1,9 +1,6 @@
 ---
 title: "2018 BAM Workplan"
 author: "Table: BAM's Project Structure"
-output:
-  word_document:
-    reference_docx: ../styles/ProjectHierarchy.docx
 ---
 
 **Last run: `r format(Sys.Date(), "%B %e, %Y")`**
@@ -12,60 +9,6 @@ output:
 * Within domains, projects are organized by overarching **themes**
 * Projects working towards the same end goal are clustered into a single **cluster**. 
 * A **Project** it typically discrete, and results in an end result such as a paper or report. 
-
-``` {r setup, echo=F, message=F, warning=F}
-source("1.SetupScript.R")
-```
-
-``` {r}
-projs <- read.csv("dataTables/qry_bamPROJECTSflat.csv", header=T)
-kable(head(projs), row.names=F)
-```
-
-# Plot in tabular format. 
-
-``` {r, clean.table, echo=F}
-allproj <- data.frame(Domain=projs$Domain, Theme=projs$Theme, Cluster=projs$Cluster, Project=paste(projs$Project, " [", projs$Lead, "]", sep=""), Status=projs$Project.Status)
-
-allproj <- allproj[!is.na(allproj$Domain),]
-allproj <- allproj[allproj$Domain != "",]
-allproj <- allproj[!duplicated(allproj),]
-allproj <- allproj[!allproj$Status %in% c("ABANDONED", "MERGED", "MORPHED"),]
-
-allproj$Domain <- factor(allproj$Domain, levels=domains$Domain[domains$Domain.Number])
-allproj$Theme <- factor(allproj$Theme, levels=themes$Theme[order(themes$Theme.Order)])
-allproj$Cluster <- factor(allproj$Cluster, levels=clusters$Cluster[order(clusters$Order)])
-
-allproj <- allproj[order(allproj$Domain, allproj$Theme, allproj$Cluster, allproj$Project),]
-
-allproj$Domain <- as.character(allproj$Domain)
-allproj$Theme <- as.character(allproj$Theme)
-allproj$Cluster <- as.character(allproj$Cluster)
-allproj$Project <- as.character(allproj$Project)
-``` 
-
-### All currently active, queued, or proposed projects, including those not led by BAM team members
-
-``` {r, echo=F}
-subproj <- allproj[allproj$Status %in% c("ACTIVE", "IDEA", "ONGOING", "QUEUED", "STALLED", "NOT BAM"),]
-
-subproj$Domain[duplicated(subproj$Domain)] <- " \" "
-subproj$Theme[duplicated(subproj$Theme)] <- " \" "
-subproj$Cluster[duplicated(subproj$Cluster)] <- " \" "
-
-kable(subproj[c("Domain", "Theme", "Cluster", "Project")], row.names=F)
-```
-
-### Historical record of complete and active projects 
-Only includes those summarized on SharePoint
-
-``` {r, echo=F}
-allproj$Domain[duplicated(allproj$Domain)] <- " \" "
-allproj$Theme[duplicated(allproj$Theme)] <- " \" "
-allproj$Cluster[duplicated(allproj$Cluster)] <- " \" "
-
-kable(allproj[c("Domain", "Theme", "Cluster", "Project", "Status")], row.names=F)
-```
 
 
 # Plot in summarized, hierarchical format. 
@@ -76,6 +19,26 @@ kable(allproj[c("Domain", "Theme", "Cluster", "Project", "Status")], row.names=F
 projs <- read.csv("dataTables/qry_bamPROJECTSflat.csv", header=T)
 ```
 
+### Add back in lookup tables and corresponding colours
+``` {r}
+## Project Status
+status <- read.csv("dataTables/lookup_projectSTATUS.CSV", header=T)
+colnames(projs)[which(colnames(projs)=="projectSTATUS")] <- "ID"
+projs <- merge(projs, status, by="ID", all.x=T)
+projs <- projs[-1]
+
+## Project proximity
+proximity <- read.csv("dataTables/lookup_projectPROXIMITY.csv", header=T)
+colnames(projs)[which(colnames(projs)=="Proximity")] <- "ID"
+projs <- merge(projs, proximity, by="ID", all.x=T)
+projs <- projs[-1]
+
+## Leads
+leads <- read.csv("dataTables/bamPEOPLE.csv", header=T)
+colnames(projs)[which(colnames(projs)=="LEAD")] <- "fullNAME"
+projs <- merge(projs, leads[c("fullNAME", "personColour")], by="fullNAME", all.x=T)
+```
+
 ``` {r}
 projs1 <- projs[c("domainNAME", "themeNAME", "clusterNAME", "PROJECTname", "PROJECTpurpose", "nature", "projectSTATUS", "Proximity")]
 projs1$size <- 1
@@ -83,39 +46,50 @@ projs1$size <- 1
 
 ## Tree map
 
-``` {r}
+``` {r, fig.height=11, fig.width=8.5, eval=F}
 require(treemap)
 treemap(projs1, index=colnames(projs1[1:5]), vSize="size")
+
+trash <- lapply(1:4, function(i) {
+  treemap(projs1[projs1$domainNAME %in% unique(projs1$domainNAME)[i],], index=colnames(projs1[2:5]), vSize="size")
+})
 ```
 
 Pretty, but not information rich enough for my purposes. 
 
 # Dynamic split screen based on data.frame contents
 
-### try with a test subset first
-
-#### Create subset
-
-```{r}
-dat <- projs[projs$themeNAME %in% c("LUChange - Land-use Change"),]
-dat <- subset(dat, dat$projectSTATUS %in% c(3))
-do.call(rbind,lapply(dat, function(x) {length(unique(x))}))
-kable(dat)
-```
-
-
-#### Test with a subset of data
-
 ``` {r}
+F.hierarcplot <- function(dat,
+         col1L = 0, 
+         col2L = 0.1, 
+         col3L = 0.2, 
+         col4L = 0.35,
+         col5L = 0.6,
+         col5R = 1,
+         wrapsize1=9,
+         wrapsize2=12,
+         wrapsize3=15,
+         wrapsize4=35,
+         wrapsize5=45,
+         fontsize1=1, 
+         fontsize2=1,
+         fontsize3=1,
+         fontsize4=0.75,
+         fontsize5=0.5,
+         domcol="white", 
+         thmcol="white", 
+         cluscol="white", 
+         projcol="white", 
+         detcol="white",
+         clrcol="StatusColour")
 
-# column widths are fixed based on expected content
-col1L <- 0
-col2L <- 0.1
-col3L <- 0.2
-col4L <- 0.35
-col5L <- 0.6
-col5R <- 1
+ {
+# dat is a data frame containing the hierarchically-organized information. 
+# column coordinates are set  based on expected content. Default values are what last worked for mine. 
+# note this function is written for 5 columns and isn't flexible to other options.
 
+#PROJECT COLUMN
 # determine number of rows and sizes for project column
 projcoor <- data.frame(L=rep(col4L, times=nrow(dat)),
                        R=rep(col5L, times=nrow(dat)),
@@ -140,7 +114,7 @@ for (i in 1:nrow(detcoor)) {
 
 
 # determine number of rows and sizes for  cluster column
-uniqueclus <- length(unique(dat$clus))
+uniqueclus <- length(unique(dat$clusterNAME))
 cluscoor <- data.frame(L=rep(col3L, times=uniqueclus),
                        R=rep(col4L, times=uniqueclus),
                        B=rep(NA, times=uniqueclus),
@@ -150,13 +124,13 @@ for (i in 1:nrow(cluscoor)) {
   if (i == 1) {
     nproj.in.prevclus <- 0
     ithclus <- unique(dat$clus)[i]
-    nproj.in.ithclus <-  length(dat$proj[dat$clus %in% ithclus])
+    nproj.in.ithclus <-  length(dat$PROJECTname[dat$clusterNAME %in% ithclus])
   } else {
     prevclus <- unique(dat$clus)[1:(i-1)] # clusters previously populated 
-    nproj.in.prevclus <-  length(dat$proj[dat$clus %in% prevclus]) # number of projects within previously populated clusters
+    nproj.in.prevclus <-  length(dat$PROJECTname[dat$clusterNAME %in% prevclus]) # number of projects within previously populated clusters
     
     ithclus <- unique(dat$clus)[i] # cluster to populate on ith iteration
-    nproj.in.ithclus <- length(dat$proj[dat$clus %in% ithclus]) # number of projects within this cluster
+    nproj.in.ithclus <- length(dat$PROJECTname[dat$clusterNAME %in% ithclus]) # number of projects within this cluster
   }
     
   cluscoor[i,3] <- 1 - ((nproj.in.ithclus + nproj.in.prevclus) / nrow(dat)) # bottom coordinate
@@ -165,7 +139,7 @@ for (i in 1:nrow(cluscoor)) {
 }
 
 # determine number of rows and sizes for  theme column
-uniquetheme <- length(unique(dat$theme))
+uniquetheme <- length(unique(dat$themeNAME))
 themecoor <- data.frame(L=rep(col2L, times=uniquetheme),
                        R=rep(col3L, times=uniquetheme),
                        B=rep(NA, times=uniquetheme),
@@ -174,24 +148,23 @@ themecoor <- data.frame(L=rep(col2L, times=uniquetheme),
 for (i in 1:nrow(themecoor)) {
   if (i == 1) {
     nproj.in.prevtheme <- 0
-    iththeme <- unique(dat$theme)[i]
-    nproj.in.iththeme <-  length(dat$proj[dat$theme %in% iththeme])
+    iththeme <- unique(dat$themeNAME)[i]
+    nproj.in.iththeme <-  length(dat$PROJECTname[dat$themeNAME %in% iththeme])
   } else {
-    prevtheme <- unique(dat$theme)[1:(i-1)] # themes previously populated 
-    nproj.in.prevtheme <-  length(dat$proj[dat$theme %in% prevtheme]) # number of projects within previously populated themes
+    prevtheme <- unique(dat$themeNAME)[1:(i-1)] # themes previously populated 
+    nproj.in.prevtheme <-  length(dat$PROJECTname[dat$themeNAME %in% prevtheme]) # number of projects within previously populated themes
     
-    iththeme <- unique(dat$theme)[i] # cluster to populate on ith iteration
-    nproj.in.iththeme <- length(dat$proj[dat$theme %in% iththeme]) # number of projects within this cluster
+    iththeme <- unique(dat$themeNAME)[i] # cluster to populate on ith iteration
+    nproj.in.iththeme <- length(dat$PROJECTname[dat$themeNAME %in% iththeme]) # number of projects within this theme
   }
     
   themecoor[i,3] <- 1 - ((nproj.in.iththeme + nproj.in.prevtheme) / nrow(dat)) # bottom coordinate
   
   themecoor[i,4] <- 1 - (nproj.in.prevtheme/nrow(dat))  # top coordinate
-  
 }
 
 # determine number of rows and sizes for  domain column
-uniquedomain <- length(unique(dat$domain))
+uniquedomain <- length(unique(dat$domainNAME))
 domaincoor <- data.frame(L=rep(col1L, times=uniquedomain),
                        R=rep(col2L, times=uniquedomain),
                        B=rep(NA, times=uniquedomain),
@@ -200,48 +173,165 @@ domaincoor <- data.frame(L=rep(col1L, times=uniquedomain),
 for (i in 1:nrow(domaincoor)) {
   if (i == 1) {
     nproj.in.prevdomain <- 0
-    ithdomain <- unique(dat$domain)[i]
-    nproj.in.ithdomain <-  length(dat$proj[dat$domain %in% ithdomain])
+    ithdomain <- unique(dat$domainNAME)[i]
+    nproj.in.ithdomain <-  length(dat$PROJECTname[dat$domainNAME %in% ithdomain])
   } else {
-    prevtheme <- unique(dat$theme)[1:(i-1)] # themes previously populated 
-    nproj.in.prevtheme <-  length(dat$proj[dat$theme %in% prevtheme]) # number of projects within previously populated themes
+    prevdomain <- unique(dat$domainNAME)[1:(i-1)] # themes previously populated 
+    nproj.in.prevdomain <-  length(dat$PROJECTname[dat$domainNAME %in% prevdomain]) # number of projects within previously populated domains
     
-    iththeme <- unique(dat$theme)[i] # cluster to populate on ith iteration
-    nproj.in.iththeme <- length(dat$proj[dat$theme %in% iththeme]) # number of projects within this cluster
+    ithdomain <- unique(dat$domainNAME)[i] # cluster to populate on ith iteration
+    nproj.in.ithdomain <- length(dat$PROJECTname[dat$domainNAME %in% ithdomain]) # number of projects within this domain
   }
     
   domaincoor[i,3] <- 1 - ((nproj.in.ithdomain + nproj.in.prevdomain) / nrow(dat)) # bottom coordinate
   
   domaincoor[i,4] <- 1 - (nproj.in.prevdomain/nrow(dat))  # top coordinate
-  
 }
 
+# COMBINE ALL COORDINATES INTO ONE BIG MATRIX.
 allcoor <- rbind(domaincoor, themecoor, cluscoor, projcoor, detcoor)
-
-split.screen(as.matrix(allcoor))
 
 texttoprint <- c(as.character(dat$domainNAME[!duplicated(dat$domainNAME)]),
 as.character(dat$themeNAME[!duplicated(dat$themeNAME)]),
 as.character(dat$clusterNAME[!duplicated(dat$clusterNAME)]),
-as.character(dat$PROJECTname[!duplicated(dat$PROJECTname)]),
-as.character(dat$PROJECTpurpose[!duplicated(dat$PROJECTpurpose)]))
+as.character(dat$PROJECTname),
+as.character(dat$PROJECTpurpose))
 
-wraplength <- c(rep(9, times=length(unique(dat$domainNAME))), # domain
-                rep(12, times=length(unique(dat$themeNAME))), #theme
-                rep(15, times=length(unique(dat$clusterNAME))), #cluster
-                rep(35, times=length(unique(dat$PROJECTname))), #project
-                rep(45, times=length(unique(dat$PROJECTpurpose)))) #purpose
+wraplength <- c(rep(wrapsize1, times=length(unique(dat$domainNAME))), # domain
+                rep(wrapsize2, times=length(unique(dat$themeNAME))), #theme
+                rep(wrapsize3, times=length(unique(dat$clusterNAME))), #cluster
+                rep(wrapsize4, times=length(dat$PROJECTname)), #project
+                rep(wrapsize5, times=length(dat$PROJECTpurpose))) #purpose
 
+fontsize <- c(rep(fontsize1, times=length(unique(dat$domainNAME))), # domain
+                rep(fontsize2, times=length(unique(dat$themeNAME))), #theme
+                rep(fontsize3, times=length(unique(dat$clusterNAME))), #cluster
+                rep(fontsize4, times=length(dat$PROJECTname)), #project
+                rep(fontsize5, times=length(dat$PROJECTpurpose))) #purpose
+
+bgcolour <- c(rep(domcol, times=length(unique(dat$domainNAME))), # domain
+                rep(thmcol, times=length(unique(dat$themeNAME))), #theme
+                rep(cluscol, times=length(unique(dat$clusterNAME))), #cluster
+                as.character(dat[[clrcol]]), #project
+                as.character(dat[[clrcol]])) #purpose
+
+split.screen(as.matrix(allcoor))
 
 for(i in 1:nrow(allcoor)) {
+ par(bg=bgcolour[i])
  screen(i)
  par(mar = c(0, 0, 0, 0))
- text(.5,.5,paste(strwrap(texttoprint[i],wraplength[i]), collapse="\n"))
+ text(.5,.5,paste(strwrap(texttoprint[i],wraplength[i]), collapse="\n"), cex=fontsize[i])
  box()
+ par(bg="white")
  }
 
  close.screen(all.screens = TRUE)
-
-
+         }
 
 ```
+
+## All projects in all themes at once 
+
+Note, if you run this chunk the whole script won't read to markdown output. Fails at pandoc
+
+``` {r, eval=T, fig.height=11, fig.width=8.5, dpi=100, dev='tiff', fig.path="figures/", eval=F}
+
+trash <- lapply(1:length(unique(projs$domainNAME)), function(i){
+  tmp <- projs[projs$domainNAME == unique(projs$domainNAME)[i],]
+  lapply(1:length(unique(tmp$themeNAME)), function(j){
+    tmp2 <- tmp[tmp$themeNAME == unique(tmp$themeNAME)[j],]
+    F.hierarcplot(col2L = 0.12, col3L = 0.23, col4L = 0.37, col5L = 0.55, col5R = 1, 
+              wrapsize1=9, wrapsize2=12, wrapsize3=15, wrapsize=27, wrapsize5=84, 
+              fontsize1=1, fontsize2=1, fontsize3=1, fontsize4=0.75, fontsize5=0.7, 
+              dat=tmp2)
+  })
+})
+
+```
+
+
+## One domain at a time
+
+### `r unique(projs$domainNAME)[1]`
+``` {r, eval=T, fig.height=11, fig.width=8.5, dpi=100, dev='tiff', fig.path="figures/", eval=F}
+tmp <- projs[projs$domainNAME %in% unique(projs$domainNAME)[2],]
+tmp2 <- tmp[tmp$themeNAME == unique(tmp$themeNAME)[1],]
+
+F.hierarcplot(col2L = 0.12, col3L = 0.23, col4L = 0.37, col5L = 0.55, col5R = 1, 
+              wrapsize1=9, wrapsize2=12, wrapsize3=15, wrapsize=27, wrapsize5=84, 
+              fontsize1=1, fontsize2=1, fontsize3=1, fontsize4=0.75, fontsize5=0.7, 
+              domcol="#558aca", thmcol="#558aca", cluscol="#558aca",
+              dat=tmp2)
+
+
+  lapply(1:length(unique(tmp$themeNAME)), function(j){
+    tmp2 <- tmp[tmp$themeNAME == unique(tmp$themeNAME)[j],]
+  })
+```
+
+
+### `r unique(projs$domainNAME)[2]`
+
+### `r unique(projs$domainNAME)[3]`
+
+### `r unique(projs$domainNAME)[4]`
+
+
+# Tabular format
+
+
+``` {r setup, echo=F, message=F, warning=F, eval=F}
+source("1.SetupScript.R")
+```
+
+``` {r, eval=F}
+projs <- read.csv("dataTables/qry_bamPROJECTSflat.csv", header=T)
+kable(head(projs), row.names=F)
+```
+
+# Plot in tabular format. 
+
+``` {r, clean.table, echo=F, eval=F}
+allproj <- data.frame(Domain=projs$Domain, Theme=projs$Theme, Cluster=projs$Cluster, Project=paste(projs$Project, " [", projs$Lead, "]", sep=""), Status=projs$Project.Status)
+
+allproj <- allproj[!is.na(allproj$Domain),]
+allproj <- allproj[allproj$Domain != "",]
+allproj <- allproj[!duplicated(allproj),]
+allproj <- allproj[!allproj$Status %in% c("ABANDONED", "MERGED", "MORPHED"),]
+
+allproj$Domain <- factor(allproj$Domain, levels=domains$Domain[domains$Domain.Number])
+allproj$Theme <- factor(allproj$Theme, levels=themes$Theme[order(themes$Theme.Order)])
+allproj$Cluster <- factor(allproj$Cluster, levels=clusters$Cluster[order(clusters$Order)])
+
+allproj <- allproj[order(allproj$Domain, allproj$Theme, allproj$Cluster, allproj$Project),]
+
+allproj$Domain <- as.character(allproj$Domain)
+allproj$Theme <- as.character(allproj$Theme)
+allproj$Cluster <- as.character(allproj$Cluster)
+allproj$Project <- as.character(allproj$Project)
+``` 
+
+### All currently active, queued, or proposed projects, including those not led by BAM team members
+
+``` {r, echo=F, eval=F}
+subproj <- allproj[allproj$Status %in% c("ACTIVE", "IDEA", "ONGOING", "QUEUED", "STALLED", "NOT BAM"),]
+
+subproj$Domain[duplicated(subproj$Domain)] <- " \" "
+subproj$Theme[duplicated(subproj$Theme)] <- " \" "
+subproj$Cluster[duplicated(subproj$Cluster)] <- " \" "
+
+kable(subproj[c("Domain", "Theme", "Cluster", "Project")], row.names=F)
+```
+
+### Historical record of complete and active projects 
+Only includes those summarized on SharePoint
+
+``` {r, echo=F, eval=F}
+allproj$Domain[duplicated(allproj$Domain)] <- " \" "
+allproj$Theme[duplicated(allproj$Theme)] <- " \" "
+allproj$Cluster[duplicated(allproj$Cluster)] <- " \" "
+
+kable(allproj[c("Domain", "Theme", "Cluster", "Project", "Status")], row.names=F)
+```
+

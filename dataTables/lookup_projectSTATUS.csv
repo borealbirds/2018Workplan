@@ -1,0 +1,10 @@
+ID,projectSTATUS,description,StatusColour
+1,IDEA,"A project that has been discussed or proposed but does not have explicit plans or deadlines associated with it. Initiation of this project may be contingent on grant success, and at minimum requires Steering Committee approval.",#ffff99
+2,QUEUED,"The project is promised on a grant or has been discussed and we plan to do it, though the deadline may be undetermined. We’re waiting for someone to lead it, or for other work to be completed first (e.g., because of dependencies). We may need to discuss project scope before starting the project.",#66ffb3
+3,ACTIVE,"The project has been started. A lead has been identified, the purpose and scope of the project has been articulated. The project has been worked on in the last 6 months.",#47d147
+4,MERGED,Two or more projects were originally separate but were combined into one larger project for tracking in SharePoint. This status indicates a project that was subsumed by another. It can also be the case that a 'project' became a 'milestone' under another project.,#cc6600
+5,SPLIT,The project was split into two or more different projects,#cc33ff
+6,MORPHED,Project goals or deliverables have shifted significantly since project creation. A new entry in the SharePoint projects table is created to track the new trajectory.,#994d00
+7,STALLED,"A project that was started but that hasn't progressed in the past 6 months. It should be revisited to review what has been done, and what remains to be done. Also, to decide who will do the work and what the deadline is.",#ff9933
+8,ABANDONED,The project was deemed unfeasible and was abandoned. Or project was mistakenly added to the SharePoint table and deemed not necessary.,#ff0000
+9,COMPLETE,"All project tasks are done, the project goal is achieved, and deliverables are finished and uploaded to SharePoint (where applicable). Note that a submitted manuscript constitutes completion where a paper is deliverable.",#339966
