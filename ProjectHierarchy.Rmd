@@ -15,12 +15,15 @@ author: "Table: BAM's Project Structure"
 
 ## import projects in flat database format
 
-``` {r}
+``` {r, echo=F}
 projs <- read.csv("dataTables/qry_bamPROJECTSflat.csv", header=T)
+projs$clusterNAME <- as.character(projs$clusterNAME)
+projs$clusterNAME[projs$clusterNAME %in% c("Policies_Protocols")] <- "Policies & Protocols"
+projs$clusterNAME[projs$clusterNAME %in% c("Operations_Functioning")] <- "Operations & Functioning"
 ```
 
 ### Add back in lookup tables and corresponding colours
-``` {r}
+``` {r, echo=F}
 ## Project Status
 status <- read.csv("dataTables/lookup_projectSTATUS.CSV", header=T)
 colnames(projs)[which(colnames(projs)=="projectSTATUS")] <- "ID"
@@ -29,9 +32,7 @@ projs <- projs[-1]
 
 ## Project proximity
 proximity <- read.csv("dataTables/lookup_projectPROXIMITY.csv", header=T)
-colnames(projs)[which(colnames(projs)=="Proximity")] <- "ID"
-projs <- merge(projs, proximity, by="ID", all.x=T)
-projs <- projs[-1]
+projs <- merge(projs, proximity, by="Proximity", all.x=T)
 
 ## Leads
 leads <- read.csv("dataTables/bamPEOPLE.csv", header=T)
@@ -39,27 +40,29 @@ colnames(projs)[which(colnames(projs)=="LEAD")] <- "fullNAME"
 projs <- merge(projs, leads[c("fullNAME", "personColour")], by="fullNAME", all.x=T)
 ```
 
-``` {r}
+``` {r, echo=F}
 projs1 <- projs[c("domainNAME", "themeNAME", "clusterNAME", "PROJECTname", "PROJECTpurpose", "nature", "projectSTATUS", "Proximity")]
 projs1$size <- 1
 ```
 
 ## Tree map
 
-``` {r, fig.height=11, fig.width=8.5, eval=F}
+``` {r, fig.height=11, fig.width=8.5, eval=T, echo=F}
 require(treemap)
-treemap(projs1, index=colnames(projs1[1:5]), vSize="size")
+treemap(projs1, index=colnames(projs1[1:5]), vSize="size", title="")
 
 trash <- lapply(1:4, function(i) {
-  treemap(projs1[projs1$domainNAME %in% unique(projs1$domainNAME)[i],], index=colnames(projs1[2:5]), vSize="size")
+  treemap(projs1[projs1$domainNAME %in% unique(projs1$domainNAME)[i],], index=colnames(projs1[2:5]), vSize="size", title="")
 })
 ```
 
-Pretty, but not information rich enough for my purposes. 
+Pretty, but not information rich enough for my purposes. So let's try something else. 
+
+
 
 # Dynamic split screen based on data.frame contents
 
-``` {r}
+``` {r, echo=F}
 F.hierarcplot <- function(dat,
          col1L = 0, 
          col2L = 0.1, 
@@ -77,18 +80,24 @@ F.hierarcplot <- function(dat,
          fontsize3=1,
          fontsize4=0.75,
          fontsize5=0.5,
-         domcol="white", 
-         thmcol="white", 
+         domcol="DomainColour", 
+         thmcol="DomainColour", 
          cluscol="white", 
-         projcol="white", 
-         detcol="white",
-         clrcol="StatusColour")
+         projcol="ProximityColour", 
+         detcol="StatusColour",
+         numcols=5, 
+         statustoinclude=c("STALLED", "COMPLETE", "ABANDONED", "IDEA", "ACTIVE", "MERGED"))
 
  {
 # dat is a data frame containing the hierarchically-organized information. 
 # column coordinates are set  based on expected content. Default values are what last worked for mine. 
-# note this function is written for 5 columns and isn't flexible to other options.
+# note this function is written for 4 or 5 columns and isn't flexible to other options.
 
+  ### Subset for status I care about
+  
+  dat <- dat[dat$projectSTATUS %in% statustoinclude,]
+  
+  
 #PROJECT COLUMN
 # determine number of rows and sizes for project column
 projcoor <- data.frame(L=rep(col4L, times=nrow(dat)),
@@ -189,13 +198,44 @@ for (i in 1:nrow(domaincoor)) {
 }
 
 # COMBINE ALL COORDINATES INTO ONE BIG MATRIX.
-allcoor <- rbind(domaincoor, themecoor, cluscoor, projcoor, detcoor)
 
-texttoprint <- c(as.character(dat$domainNAME[!duplicated(dat$domainNAME)]),
-as.character(dat$themeNAME[!duplicated(dat$themeNAME)]),
-as.character(dat$clusterNAME[!duplicated(dat$clusterNAME)]),
-as.character(dat$PROJECTname),
-as.character(dat$PROJECTpurpose))
+if (numcols == 4) {
+  allcoor <- rbind(themecoor, cluscoor, projcoor, detcoor)
+  
+  
+  texttoprint <- c(as.character(dat$themeNAME[!duplicated(dat$themeNAME)]),
+                   as.character(dat$clusterNAME[!duplicated(dat$clusterNAME)]),
+                   as.character(dat$PROJECTname),
+                   as.character(dat$PROJECTpurpose))
+
+wraplength <- c(rep(wrapsize2, times=length(unique(dat$themeNAME))), #theme
+                rep(wrapsize3, times=length(unique(dat$clusterNAME))), #cluster
+                rep(wrapsize4, times=length(dat$PROJECTname)), #project
+                rep(wrapsize5, times=length(dat$PROJECTpurpose))) #purpose
+
+fontsize <- c(rep(fontsize2, times=length(unique(dat$themeNAME))), #theme
+                rep(fontsize3, times=length(unique(dat$clusterNAME))), #cluster
+                rep(fontsize4, times=length(dat$PROJECTname)), #project
+                rep(fontsize5, times=length(dat$PROJECTpurpose))) #purpose
+
+thmcoldf <- data.frame(Theme=dat$themeNAME, ThemeColour=dat[[thmcol]])
+thmcoldf <- thmcoldf[!duplicated(thmcoldf$Theme),]
+
+bgcolour <- c(as.character(thmcoldf$ThemeColour), #theme
+                rep(cluscol, times=length(unique(dat$clusterNAME))), #cluster
+                as.character(dat[[projcol]]), #project
+                as.character(dat[[detcol]])) #purpose
+  
+} 
+
+if (numcols == 5){
+  allcoor <- rbind(domaincoor, themecoor, cluscoor, projcoor, detcoor)  
+  
+  texttoprint <- c(as.character(dat$domainNAME[!duplicated(dat$domainNAME)]),
+                   as.character(dat$themeNAME[!duplicated(dat$themeNAME)]),
+                   as.character(dat$clusterNAME[!duplicated(dat$clusterNAME)]),
+                   as.character(dat$PROJECTname),
+                   as.character(dat$PROJECTpurpose))
 
 wraplength <- c(rep(wrapsize1, times=length(unique(dat$domainNAME))), # domain
                 rep(wrapsize2, times=length(unique(dat$themeNAME))), #theme
@@ -209,11 +249,19 @@ fontsize <- c(rep(fontsize1, times=length(unique(dat$domainNAME))), # domain
                 rep(fontsize4, times=length(dat$PROJECTname)), #project
                 rep(fontsize5, times=length(dat$PROJECTpurpose))) #purpose
 
-bgcolour <- c(rep(domcol, times=length(unique(dat$domainNAME))), # domain
-                rep(thmcol, times=length(unique(dat$themeNAME))), #theme
+domcoldf <- data.frame(Domain=dat$domainNAME, DomainColour=dat[[domcol]])
+domcoldf <- domcoldf[!duplicated(domcoldf$Domain),]
+
+thmcoldf <- data.frame(Theme=dat$themeNAME, ThemeColour=dat[[thmcol]])
+thmcoldf <- thmcoldf[!duplicated(thmcoldf$Theme),]
+
+bgcolour <- c(as.character(domcoldf$DomainColour), #domain
+              as.character(thmcoldf$ThemeColour), #theme
                 rep(cluscol, times=length(unique(dat$clusterNAME))), #cluster
-                as.character(dat[[clrcol]]), #project
-                as.character(dat[[clrcol]])) #purpose
+                as.character(dat[[projcol]]), #project
+                as.character(dat[[detcol]])) #purpose
+
+}
 
 split.screen(as.matrix(allcoor))
 
@@ -235,57 +283,192 @@ for(i in 1:nrow(allcoor)) {
 
 Note, if you run this chunk the whole script won't read to markdown output. Fails at pandoc
 
-``` {r, eval=T, fig.height=11, fig.width=8.5, dpi=100, dev='tiff', fig.path="figures/", eval=F}
+``` {r, fig.height=11, fig.width=8.5, dpi=100, dev='tiff', fig.path="figures/", eval=F, echo=F}
 
 trash <- lapply(1:length(unique(projs$domainNAME)), function(i){
   tmp <- projs[projs$domainNAME == unique(projs$domainNAME)[i],]
   lapply(1:length(unique(tmp$themeNAME)), function(j){
     tmp2 <- tmp[tmp$themeNAME == unique(tmp$themeNAME)[j],]
-    F.hierarcplot(col2L = 0.12, col3L = 0.23, col4L = 0.37, col5L = 0.55, col5R = 1, 
-              wrapsize1=9, wrapsize2=12, wrapsize3=15, wrapsize=27, wrapsize5=84, 
+    F.hierarcplot(col2L = 0, col3L = 0.12, col4L = 0.27, col5L = 0.52, col5R = 1, 
+              wrapsize1=9, wrapsize2=12, wrapsize3=15, wrapsize4=32, wrapsize5=84, 
               fontsize1=1, fontsize2=1, fontsize3=1, fontsize4=0.75, fontsize5=0.7, 
-              dat=tmp2)
+              dat=tmp2, numcols=4, domcol="DomainColour", thmcol="DomainColour",  cluscol="white", 
+              projcol="ProximityColour", detcol="StatusColour", statustoinclude = c("ACTIVE", "IDEA", "STALLED"))
   })
 })
-
 ```
 
 
 ## One domain at a time
 
 ### `r unique(projs$domainNAME)[1]`
-``` {r, eval=T, fig.height=11, fig.width=8.5, dpi=100, dev='tiff', fig.path="figures/", eval=F}
-tmp <- projs[projs$domainNAME %in% unique(projs$domainNAME)[2],]
-tmp2 <- tmp[tmp$themeNAME == unique(tmp$themeNAME)[1],]
 
-F.hierarcplot(col2L = 0.12, col3L = 0.23, col4L = 0.37, col5L = 0.55, col5R = 1, 
-              wrapsize1=9, wrapsize2=12, wrapsize3=15, wrapsize=27, wrapsize5=84, 
+``` {r Fig.Domain1, fig.height=6, fig.width=8.5, dpi=100, dev='jpeg', fig.path="figures/", eval=T, echo=F}
+tmp <- projs[projs$domainNAME %in% unique(projs$domainNAME)[1],]
+trash <- lapply(1:length(unique(tmp$themeNAME)), function(j){
+  tmp2 <- tmp[tmp$themeNAME == unique(tmp$themeNAME)[j],]
+    F.hierarcplot(col2L = 0, col3L = 0.15, col4L = 0.30, col5L = 0.52, col5R = 1, 
+              wrapsize1=9, wrapsize2=12, wrapsize3=15, wrapsize4=28, wrapsize5=74,
               fontsize1=1, fontsize2=1, fontsize3=1, fontsize4=0.75, fontsize5=0.7, 
-              domcol="#558aca", thmcol="#558aca", cluscol="#558aca",
-              dat=tmp2)
+              dat=tmp2, numcols=4, domcol="DomainColour", thmcol="DomainColour",  cluscol="white", 
+              projcol="ProximityColour", detcol="StatusColour", statustoinclude = c("ACTIVE", "IDEA", "STALLED"))
 
-
-  lapply(1:length(unique(tmp$themeNAME)), function(j){
-    tmp2 <- tmp[tmp$themeNAME == unique(tmp$themeNAME)[j],]
-  })
+})
+  
 ```
 
 
 ### `r unique(projs$domainNAME)[2]`
 
+``` {r Fig.Domain2, fig.height=11, fig.width=8.5, dpi=100, dev='jpeg', fig.path="figures/", eval=T, echo=F}
+tmp <- projs[projs$domainNAME %in% unique(projs$domainNAME)[2],]
+trash <- lapply(1:length(unique(tmp$themeNAME)), function(j){
+  tmp2 <- tmp[tmp$themeNAME == unique(tmp$themeNAME)[j],]
+    F.hierarcplot(col2L = 0, col3L = 0.15, col4L = 0.32, col5L = 0.50, col5R = 1, 
+              wrapsize1=9, wrapsize2=12, wrapsize3=15, wrapsize4=25, wrapsize5=74,
+              fontsize1=1, fontsize2=1, fontsize3=1, fontsize4=0.75, fontsize5=0.7, 
+              dat=tmp2, numcols=4, domcol="DomainColour", thmcol="DomainColour",  cluscol="white", 
+              projcol="ProximityColour", detcol="StatusColour", statustoinclude = c("ACTIVE", "IDEA", "STALLED"))
+
+})
+  
+```
+
 ### `r unique(projs$domainNAME)[3]`
 
+``` {r Fig.Domain3, fig.height=8, fig.width=8.5, dpi=100, dev='tiff', fig.path="figures/", eval=T, echo=F}
+tmp <- projs[projs$domainNAME %in% unique(projs$domainNAME)[3],]
+trash <- lapply(1:length(unique(tmp$themeNAME)), function(j){
+  tmp2 <- tmp[tmp$themeNAME == unique(tmp$themeNAME)[j],]
+  F.hierarcplot(col2L = 0, col3L = 0.15, col4L = 0.32, col5L = 0.50, col5R = 1, 
+              wrapsize1=9, wrapsize2=12, wrapsize3=15, wrapsize4=22, wrapsize5=74,
+              fontsize1=1, fontsize2=1, fontsize3=1, fontsize4=0.75, fontsize5=0.7, 
+              dat=tmp2, numcols=4, domcol="DomainColour", thmcol="DomainColour",  cluscol="white", 
+              projcol="ProximityColour", detcol="StatusColour", statustoinclude = c("ACTIVE", "IDEA", "STALLED"))
+
+})
+  
+```
+
 ### `r unique(projs$domainNAME)[4]`
+
+``` {r Fig.Domain4, fig.height=4, fig.width=8.5, dpi=100, dev='jpeg', fig.path="figures/", eval=T, echo=F}
+tmp <- projs[projs$domainNAME %in% unique(projs$domainNAME)[4],]
+trash <- lapply(1:length(unique(tmp$themeNAME)), function(j){
+  tmp2 <- tmp[tmp$themeNAME == unique(tmp$themeNAME)[j],]
+  F.hierarcplot(col2L = 0, col3L = 0.15, col4L = 0.32, col5L = 0.54, col5R = 1, 
+              wrapsize1=9, wrapsize2=12, wrapsize3=15, wrapsize4=25, wrapsize5=74,
+              fontsize1=1, fontsize2=1, fontsize3=1, fontsize4=0.75, fontsize5=0.7, 
+              dat=tmp2, numcols=4, domcol="DomainColour", thmcol="DomainColour",  cluscol="white", 
+              projcol="ProximityColour", detcol="StatusColour", statustoinclude = c("ACTIVE", "IDEA", "STALLED"))
+
+})
+  
+```
+
+### Legends
+
+#### Project Status Legend
+
+``` {r, Fig.StatusLegend, fig.height=7, fig.width=8.5, dpi=100, dev="jpeg", echo=F, eval=T}
+colsplit <- 0.2
+
+statcoor <- data.frame(L=rep(0, times=length(unique(status$projectSTATUS))),
+                       R=rep(colsplit, times=length(unique(status$projectSTATUS))),
+                       B=rep(NA, times=length(unique(status$projectSTATUS))),
+                       T=rep(NA, times=length(unique(status$projectSTATUS))))
+
+desccoor <- data.frame(L=rep(colsplit, times=length(unique(status$projectSTATUS))),
+                       R=rep(1, times=length(unique(status$projectSTATUS))),
+                       B=rep(NA, times=length(unique(status$projectSTATUS))),
+                       T=rep(NA, times=length(unique(status$projectSTATUS))))
+
+
+for (i in 1:nrow(statcoor)) {
+  statcoor[i,3] <- 1 - (i / nrow(statcoor)) # bottom coordinate
+  statcoor[i,4] <- 1 - ((i-1)/nrow(statcoor)) # top coordinate
+  desccoor[i,3] <- 1 - (i / nrow(statcoor)) # bottom coordinate
+  desccoor[i,4] <- 1 - ((i-1)/nrow(statcoor)) # top coordinate
+}
+
+
+allcoor <- rbind(statcoor, desccoor)
+
+alltext <- c(as.character(status$projectSTATUS), as.character(status$description))  
+statcol <- c(as.character(status$StatusColour), rep("white", times=length(unique(status$projectSTATUS))))
+stattext <- c(as.character(status$Status), as.character(status$description))
+wraplength <- rep(90, each=nrow(allcoor))
+
+split.screen(as.matrix(rbind(statcoor, desccoor)))
+
+for(i in 1:length(alltext)) {
+ par(bg=statcol[i])
+ screen(i)
+ par(mar = c(0, 0, 0, 0))
+ text(.5,.5,paste(strwrap(alltext[i], wraplength[i]), collapse="\n"))
+ box()
+ par(bg="white")
+ }
+
+close.screen(all.screens = TRUE)
+```
+
+
+#### Project Proximity Legend
+
+``` {r, Fig.ProximityLegend, fig.height=4, fig.width=4, dpi=100, dev="jpeg", echo=F, eval=T}
+colsplit <- 0.35
+
+proxcoor <- data.frame(L=rep(0, times=length(unique(proximity$Proximity))),
+                       R=rep(colsplit, times=length(unique(proximity$Proximity))),
+                       B=rep(NA, times=length(unique(proximity$Proximity))),
+                       T=rep(NA, times=length(unique(proximity$Proximity))))
+
+desccoor <- data.frame(L=rep(colsplit, times=length(unique(proximity$Proximity))),
+                       R=rep(1, times=length(unique(proximity$Proximity))),
+                       B=rep(NA, times=length(unique(proximity$Proximity))),
+                       T=rep(NA, times=length(unique(proximity$Proximity))))
+
+
+for (i in 1:nrow(proxcoor)) {
+  proxcoor[i,3] <- 1 - (i / nrow(proxcoor)) # bottom coordinate
+  proxcoor[i,4] <- 1 - ((i-1)/nrow(proxcoor)) # top coordinate
+  desccoor[i,3] <- 1 - (i / nrow(proxcoor)) # bottom coordinate
+  desccoor[i,4] <- 1 - ((i-1)/nrow(proxcoor)) # top coordinate
+}
+
+
+allcoor <- rbind(proxcoor, desccoor)
+
+alltext <- c(as.character(proximity$Proximity), as.character(proximity$Description))  
+proxcol <- c(as.character(proximity$ProximityColour), rep("white", times=length(unique(proximity$ProximityColour))))
+proxtext <- c(as.character(proximity$Proximity), as.character(proximity$Description))
+wraplength <- rep(30, each=nrow(allcoor))
+
+split.screen(as.matrix(rbind(proxcoor, desccoor)))
+
+for(i in 1:length(alltext)) {
+ par(bg=proxcol[i])
+ screen(i)
+ par(mar = c(0, 0, 0, 0))
+ text(.5,.5,paste(strwrap(alltext[i], wraplength[i]), collapse="\n"))
+ box()
+ par(bg="white")
+ }
+
+close.screen(all.screens = TRUE)
+```
+
 
 
 # Tabular format
 
 
-``` {r setup, echo=F, message=F, warning=F, eval=F}
+``` {r setup, echo=F, message=F, warning=F, eval=F, echo=F}
 source("1.SetupScript.R")
 ```
 
-``` {r, eval=F}
+``` {r, eval=F, echo=F}
 projs <- read.csv("dataTables/qry_bamPROJECTSflat.csv", header=T)
 kable(head(projs), row.names=F)
 ```
