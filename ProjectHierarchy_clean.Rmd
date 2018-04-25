@@ -1,0 +1,600 @@
+---
+title: "BAM Workplan"
+output: word_document
+---
+
+**Last updated: `r format(Sys.Date(), "%B %e, %Y")`**
+
+# Preface
+
+* BAM pursues **projects** in four parallel but inter-connected **domains**. 
+* Within domains, projects are organized by overarching **themes**
+* Projects working towards the same end goal are clustered into a single **cluster**. 
+* A **Project** it typically discrete, and results in an end result such as a paper or report. 
+
+The tables on the next pages describe projects on BAM's workplan. They are organized by Domain, Theme, Project Cluster, and Project.
+
+* **Column 1** is Theme. The colour corresponds to the parent Domain.
+* **Column 2** is Project Cluster. It isn't coloured. 
+* **Column 3** is Project name. The colour indicates its "proximity" to the BAM core (see below for details). 
+* **Column 4** is the purpose of the project. The colour indicates its status (see below for details).
+
+
+``` {r echo=F, warning=F, message=F}
+source("1.SetupScript.R")
+```
+
+
+``` {r load.file.fix.some.names, echo=F, message=F, }
+projs <- read.csv("dataTables/qry_bamPROJECTSflat.csv", header=T)
+
+projs$themeNAMEarchive <- projs$themeNAME
+tmp <- strsplit(as.character(projs$themeNAME), " - ")
+tmp.lengths <- unlist(lapply(tmp, length))
+projs$themeNAME <- unlist(lapply(tmp, function(x) {x[2]}))
+projs$themeNAME[tmp.lengths == 1] <- unlist(tmp[tmp.lengths == 1])
+
+projs$clusterNAME <- as.character(projs$clusterNAME)
+projs$clusterNAME[projs$clusterNAME %in% c("Policies_Protocols")] <- "Policies & Protocols"
+projs$clusterNAME[projs$clusterNAME %in% c("Operations_Functioning")] <- "Operations & Functioning"
+
+projs$clusterNAMEarchive <- projs$clusterNAME
+tmp <- strsplit(as.character(projs$clusterNAME), " - ")
+tmp.lengths <- unlist(lapply(tmp, length))
+projs$clusterNAME <- unlist(lapply(tmp, function(x) {x[2]}))
+projs$clusterNAME[tmp.lengths == 1] <- unlist(tmp[tmp.lengths == 1])
+
+```
+
+``` {r, echo=F, message=F}
+## Project Status
+status <- read.csv("dataTables/lookup_projectSTATUS.CSV", header=T)
+colnames(projs)[which(colnames(projs)=="projectSTATUS")] <- "ID"
+projs <- merge(projs, status, by="ID", all.x=T)
+projs <- projs[-1]
+
+## Project proximity
+proximity <- read.csv("dataTables/lookup_projectPROXIMITY.csv", header=T)
+projs <- merge(projs, proximity, by="Proximity", all.x=T)
+
+## Leads
+leads <- read.csv("dataTables/bamPEOPLE.csv", header=T)
+colnames(projs)[which(colnames(projs)=="LEAD")] <- "fullNAME"
+projs <- merge(projs, leads[c("fullNAME", "personColour")], by="fullNAME", all.x=T)
+```
+
+
+``` {r fix.factor.orders, echo=F}
+projs$projectSTATUS <- factor(projs$projectSTATUS, levels=levels(projs$projectSTATUS)[c(3,2,4,7,9,5,6,1,8 )], ordered=T)
+
+projs$Proximity <- factor(projs$Proximity, levels=levels(projs$Proximity)[c(2,5,3,4,1)], ordered=T)
+
+projs$domainNAME <- factor(projs$domainNAME, levels=levels(projs$domainNAME)[c(4,2,1,3)], ordered=T)
+```
+
+### Project Status
+
+``` {r pick.status, echo=F}
+statustoinclude <- c("ACTIVE", "STALLED", "IDEA", "QUEUED")
+```
+
+We keep track of all projects and ideas from 2014 until present, even if they were abandoned or never persued. We can therefore label each project based on whether it has been completed, is currently active, or may be started in the future. The colour of project description box (last column) indicates the project's status.  
+
+Not all projects are displayed in the following. Only those that are `r paste(statustoinclude, collapse=", ")` are included below. A mini version of the legend is included with each theme's plot. 
+
+If the colour looks wrong (i.e., doesn't match the status you know to be true), contact Nicole to ask her to update the workplan database. 
+
+``` {r, Fig.StatusLegend, fig.height=7, fig.width=8.5, dpi=100, dev="jpeg", echo=F, eval=T}
+colsplit <- 0.2
+
+statcoor <- data.frame(L=rep(0, times=length(unique(status$projectSTATUS))),
+                       R=rep(colsplit, times=length(unique(status$projectSTATUS))),
+                       B=rep(NA, times=length(unique(status$projectSTATUS))),
+                       T=rep(NA, times=length(unique(status$projectSTATUS))))
+
+desccoor <- data.frame(L=rep(colsplit, times=length(unique(status$projectSTATUS))),
+                       R=rep(1, times=length(unique(status$projectSTATUS))),
+                       B=rep(NA, times=length(unique(status$projectSTATUS))),
+                       T=rep(NA, times=length(unique(status$projectSTATUS))))
+
+
+for (i in 1:nrow(statcoor)) {
+  statcoor[i,3] <- 1 - (i / nrow(statcoor)) # bottom coordinate
+  statcoor[i,4] <- 1 - ((i-1)/nrow(statcoor)) # top coordinate
+  desccoor[i,3] <- 1 - (i / nrow(statcoor)) # bottom coordinate
+  desccoor[i,4] <- 1 - ((i-1)/nrow(statcoor)) # top coordinate
+}
+
+
+allcoor <- rbind(statcoor, desccoor)
+
+alltext <- c(as.character(status$projectSTATUS), as.character(status$description))  
+statcol <- c(as.character(status$StatusColour), rep("white", times=length(unique(status$projectSTATUS))))
+stattext <- c(as.character(status$Status), as.character(status$description))
+wraplength <- rep(90, each=nrow(allcoor))
+
+t <- trash <- split.screen(as.matrix(rbind(statcoor, desccoor)))
+
+for(i in 1:length(alltext)) {
+ par(bg=statcol[i])
+ screen(i)
+ par(mar = c(0, 0, 0, 0))
+ text(.5,.5,paste(strwrap(alltext[i], wraplength[i]), collapse="\n"))
+ box()
+ par(bg="white")
+ }
+
+close.screen(all.screens = TRUE)
+```
+
+
+### Project Proximity 
+With BAM being such a large and collaborative group, we have a number of projects that are more or less central to BAM's overarching mission. For the purposes of attributing credit where appropriate, we can identify each project according to it's 'proximity' to the BAM core. The colour of the project name box (second to last column) indicates the project's proximity.  
+
+A mini version of the legend is included with each theme's plot. 
+
+If the colour looks wrong (i.e., doesn't match the proximity you believe to be true), contact Nicole to ask her to update the workplan database. 
+
+``` {r, Fig.ProximityLegend, fig.height=3, fig.width=4, dpi=100, dev="jpeg", echo=F, eval=T}
+colsplit <- 0.35
+
+proxcoor <- data.frame(L=rep(0, times=length(unique(proximity$Proximity))),
+                       R=rep(colsplit, times=length(unique(proximity$Proximity))),
+                       B=rep(NA, times=length(unique(proximity$Proximity))),
+                       T=rep(NA, times=length(unique(proximity$Proximity))))
+
+desccoor <- data.frame(L=rep(colsplit, times=length(unique(proximity$Proximity))),
+                       R=rep(1, times=length(unique(proximity$Proximity))),
+                       B=rep(NA, times=length(unique(proximity$Proximity))),
+                       T=rep(NA, times=length(unique(proximity$Proximity))))
+
+
+for (i in 1:nrow(proxcoor)) {
+  proxcoor[i,3] <- 1 - (i / nrow(proxcoor)) # bottom coordinate
+  proxcoor[i,4] <- 1 - ((i-1)/nrow(proxcoor)) # top coordinate
+  desccoor[i,3] <- 1 - (i / nrow(proxcoor)) # bottom coordinate
+  desccoor[i,4] <- 1 - ((i-1)/nrow(proxcoor)) # top coordinate
+}
+
+
+allcoor <- rbind(proxcoor, desccoor)
+
+alltext <- c(as.character(proximity$Proximity), as.character(proximity$Description))  
+proxcol <- c(as.character(proximity$ProximityColour), rep("white", times=length(unique(proximity$ProximityColour))))
+proxtext <- c(as.character(proximity$Proximity), as.character(proximity$Description))
+wraplength <- rep(30, each=nrow(allcoor))
+
+trash <- split.screen(as.matrix(rbind(proxcoor, desccoor)))
+
+for(i in 1:length(alltext)) {
+ par(bg=proxcol[i])
+ screen(i)
+ par(mar = c(0, 0, 0, 0))
+ text(.5,.5,paste(strwrap(alltext[i], wraplength[i]), collapse="\n"))
+ box()
+ par(bg="white")
+ }
+
+close.screen(all.screens = TRUE)
+```
+
+
+
+# `r levels(projs$domainNAME)[1]`
+
+BAM’s research primarily contributes to conservation and management of boreal birds in two ways: 1) by providing the best available information; and 2) by advancing the theoretical foundations of research underpinning conservation and management within the boreal region. 
+
+Provision of information: Resource and species managers, policy-makers, and other decision makers must respond, assess, and triage based on available information. BAM strives to ensure the best information is available to facilitate reactive decision-making.
+
+Theoretical foundations: Simultaneously, BAM also proactively conducts research on species ecology, habitats, and human impacts, with intent to continually improve the intellectual standard, theoretical basis, and rigour of our products and advice. 
+
+``` {r, echo=F, eval=T, fig.height=2, fig.width=16.5, dpi=100, dev="jpeg"}
+allcoor <- data.frame(L=c(0, 0.25, 0.5, 0.75),
+                      R=c(0.25, 0.5, 0.75, 1),
+                      B=rep(0, times=4),
+                      T=rep(1, times=4))
+
+trash <- split.screen(as.matrix(allcoor))
+
+alltext <- c("Theme", "Cluster", "Project", "Purpose")
+
+for(i in 1:length(trash)) {
+ screen(i)
+ par(mar = c(0, 0, 0, 0))
+ text(.5,.5,alltext[i], cex=2)
+ box()
+ par(bg="white")
+ }
+
+close.screen(all.screens = TRUE)
+
+```
+
+``` {r Fig.Domain1, fig.height=11, fig.width=8.5, dpi=100, dev='jpeg', fig.path="figures/", eval=T, echo=F}
+tmp <- projs[projs$domainNAME %in% levels(projs$domainNAME)[1],]
+trash <- lapply(1:length(unique(tmp$themeNAME)), function(j){
+  tmp2 <- tmp[tmp$themeNAME == unique(tmp$themeNAME)[j],]
+  tmp2 <- tmp2[order(tmp2$clusterNAME, tmp2$Proximity, tmp2$projectSTATUS),]
+  
+  #jpeg(paste("Domain", i, ".Theme", j, ".jpeg", sep=""), width=8.5, height=11, units="in", res=200) #open image device
+  
+  F.hierarcplot(col2L = 0, col3L = 0.15, col4L = 0.32, col5L = 0.50, col5R = 1, 
+              wrapsize1=9, wrapsize2=12, wrapsize3=18, wrapsize4=22, wrapsize5=71,
+              fontsize1=1, fontsize2=1, fontsize3=1, fontsize4=0.75, fontsize5=0.7, 
+              dat=tmp2, numcols=4, domcol="DomainColour", thmcol="DomainColour",  cluscol="white", 
+              projcol="ProximityColour", detcol="StatusColour", statustoinclude = statustoinclude)
+    
+  # Status legend
+    par(new=TRUE)
+
+    legendsplits <- seq(0, 0.36, by=.04)
+
+    status.legend.included <- status[status$projectSTATUS %in% statustoinclude,]
+    
+    statcoor <- data.frame(L=rep(0, times=length(unique(status.legend.included$projectSTATUS))),
+                       R=rep(0.14, times=length(unique(status.legend.included$projectSTATUS))),
+                       B=legendsplits[1:length(unique(status.legend.included$projectSTATUS))],
+                       T=legendsplits[2:(1+length(unique(status.legend.included$projectSTATUS)))])
+
+  
+  allcoor <- rbind(statcoor)
+
+  alltext <- as.character(status.legend.included$projectSTATUS)
+  statcol <- as.character(status.legend.included$StatusColour)
+  wraplength <- rep(90, each=nrow(allcoor))
+
+  t <- trash <- split.screen(as.matrix(rbind(statcoor)))
+
+  for(i in 1:length(alltext)) {
+   par(bg=statcol[i])
+   screen(i)
+   par(mar = c(0, 0, 0, 0))
+   text(.5,.5,paste(strwrap(alltext[i], wraplength[i]), collapse="\n"))
+   box()
+   par(bg="white")
+   }
+
+  close.screen(all.screens = TRUE)
+  
+  # proximity legend
+    par(new=TRUE)
+
+    legendsplits <- seq(0.84, 1, by=.04)
+
+    proximitycoor <- data.frame(L=rep(0, times=length(unique(proximity$Proximity))),
+                       R=rep(0.14, times=length(unique(proximity$Proximity))),
+                       B=legendsplits[(length(legendsplits)-(length(unique(proximity$Proximity)))):(length(legendsplits)-1)],
+                       T=legendsplits[(length(legendsplits)-(length(unique(proximity$Proximity))-1)):length(legendsplits)])
+  allcoor <- rbind(proximitycoor)
+
+  alltext <- as.character(proximity$Proximity)
+  proxcol <- as.character(proximity$ProximityColour)
+  wraplength <- rep(90, each=nrow(allcoor))
+
+  t <- trash <- split.screen(as.matrix(rbind(proximitycoor)))
+
+  for(i in 1:length(alltext)) {
+   par(bg=proxcol[i])
+   screen(i)
+   par(mar = c(0, 0, 0, 0))
+   text(.5,.5,paste(strwrap(alltext[i], wraplength[i]), collapse="\n"))
+   box()
+   par(bg="white")
+   }
+
+  close.screen(all.screens = TRUE)
+  #dev.off() # close image device
+})
+```
+
+# `r levels(projs$domainNAME)[2]`
+
+To support BAM's research, we assembled and now maintain a comprehensive database of avian and biophysical data. The BAM Avian Database now comprises data contributed from over 140 different projects. In addition to ongoing maintenance and updating, we continually search for opportunities to fill known gaps in temporal or spatial coverage. 
+
+Where possible, we summarize our research in data products such as maps and summarized data tables. We distribute our data products to scientists, managers, and other interested parties in external groups to facilitate conservation and management of boreal birds.
+
+
+``` {r, echo=F, eval=T, fig.height=2, fig.width=16.5, dpi=100, dev="jpeg"}
+allcoor <- data.frame(L=c(0, 0.25, 0.5, 0.75),
+                      R=c(0.25, 0.5, 0.75, 1),
+                      B=rep(0, times=4),
+                      T=rep(1, times=4))
+
+trash <- split.screen(as.matrix(allcoor))
+
+alltext <- c("Theme", "Cluster", "Project", "Purpose")
+
+for(i in 1:length(trash)) {
+ screen(i)
+ par(mar = c(0, 0, 0, 0))
+ text(.5,.5,alltext[i], cex=2)
+ box()
+ par(bg="white")
+ }
+
+close.screen(all.screens = TRUE)
+
+rm(allcoor)
+```
+
+
+``` {r Fig.Domain2, fig.height=6.5, fig.width=8.5, dpi=100, dev='jpeg', fig.path="figures/", eval=T, echo=F}
+tmp <- projs[projs$domainNAME %in% levels(projs$domainNAME)[2],]
+trash <- lapply(1:length(unique(tmp$themeNAME)), function(j){
+  tmp2 <- tmp[tmp$themeNAME == unique(tmp$themeNAME)[j],]
+  tmp2 <- tmp2[order(tmp2$clusterNAME, tmp2$Proximity, tmp2$projectSTATUS),]
+    F.hierarcplot(col2L = 0, col3L = 0.15, col4L = 0.30, col5L = 0.52, col5R = 1, 
+              wrapsize1=9, wrapsize2=12, wrapsize3=15, wrapsize4=28, wrapsize5=70,
+              fontsize1=1, fontsize2=1, fontsize3=1, fontsize4=0.75, fontsize5=0.7, 
+              dat=tmp2, numcols=4, domcol="DomainColour", thmcol="DomainColour",  cluscol="white", 
+              projcol="ProximityColour", detcol="StatusColour", statustoinclude = statustoinclude)
+    
+    # Status legend
+    par(new=TRUE)
+
+    legendsplits <- seq(0, 0.36, by=.04)
+
+    status.legend.included <- status[status$projectSTATUS %in% statustoinclude,]
+    
+    statcoor <- data.frame(L=rep(0, times=length(unique(status.legend.included$projectSTATUS))),
+                       R=rep(0.14, times=length(unique(status.legend.included$projectSTATUS))),
+                       B=legendsplits[1:length(unique(status.legend.included$projectSTATUS))],
+                       T=legendsplits[2:(1+length(unique(status.legend.included$projectSTATUS)))])
+
+  
+  allcoor <- rbind(statcoor)
+
+  alltext <- as.character(status.legend.included$projectSTATUS)
+  statcol <- as.character(status.legend.included$StatusColour)
+  wraplength <- rep(90, each=nrow(allcoor))
+
+  t <- trash <- split.screen(as.matrix(rbind(statcoor)))
+
+  for(i in 1:length(alltext)) {
+   par(bg=statcol[i])
+   screen(i)
+   par(mar = c(0, 0, 0, 0))
+   text(.5,.5,paste(strwrap(alltext[i], wraplength[i]), collapse="\n"))
+   box()
+   par(bg="white")
+   }
+
+  close.screen(all.screens = TRUE)
+  
+  # proximity legend
+    par(new=TRUE)
+
+    legendsplits <- seq(0.84, 1, by=.04)
+
+    proximitycoor <- data.frame(L=rep(0, times=length(unique(proximity$Proximity))),
+                       R=rep(0.14, times=length(unique(proximity$Proximity))),
+                       B=legendsplits[(length(legendsplits)-(length(unique(proximity$Proximity)))):(length(legendsplits)-1)],
+                       T=legendsplits[(length(legendsplits)-(length(unique(proximity$Proximity))-1)):length(legendsplits)])
+  allcoor <- rbind(proximitycoor)
+
+  alltext <- as.character(proximity$Proximity)
+  proxcol <- as.character(proximity$ProximityColour)
+  wraplength <- rep(90, each=nrow(allcoor))
+
+  t <- trash <- split.screen(as.matrix(rbind(proximitycoor)))
+
+  for(i in 1:length(alltext)) {
+   par(bg=proxcol[i])
+   screen(i)
+   par(mar = c(0, 0, 0, 0))
+   text(.5,.5,paste(strwrap(alltext[i], wraplength[i]), collapse="\n"))
+   box()
+   par(bg="white")
+   }
+
+  close.screen(all.screens = TRUE)
+
+})
+  
+```
+
+
+# `r levels(projs$domainNAME)[3]`
+
+BAM extends the application of our work by collaborating with external groups. BAM’s research and data products can be and have been improved by drawing on the expertise of others working on boreal birds, whether in academia, government, industry, NGOs, or other groups. Our results can inform not just management actions but also research questions, which may seek to test assumptions or uncertainties in BAM models. 
+
+We strive to support applications of our work to conservation and management of boreal birds, and we welcome collaborations with projects that align with our mandate for conservation of boreal birds. 
+
+BAM communicates research findings in various means to academics, government and NGOs scientists and managers, and the general public. We publish our results in traditional scientific journals, and also maintain a website to disseminate our research findings. 
+
+``` {r, echo=F, eval=T, fig.height=2, fig.width=16.5, dpi=100, dev="jpeg"}
+allcoor <- data.frame(L=c(0, 0.25, 0.5, 0.75),
+                      R=c(0.25, 0.5, 0.75, 1),
+                      B=rep(0, times=4),
+                      T=rep(1, times=4))
+
+trash <- split.screen(as.matrix(allcoor))
+
+alltext <- c("Theme", "Cluster", "Project", "Purpose")
+
+for(i in 1:length(trash)) {
+ screen(i)
+ par(mar = c(0, 0, 0, 0))
+ text(.5,.5,alltext[i], cex=2)
+ box()
+ par(bg="white")
+ }
+
+close.screen(all.screens = TRUE)
+
+```
+
+
+``` {r Fig.Domain3, fig.height=9, fig.width=8.5, dpi=100, dev='jpeg', fig.path="figures/", eval=T, echo=F}
+tmp <- projs[projs$domainNAME %in% levels(projs$domainNAME)[3],]
+trash <- lapply(1:length(unique(tmp$themeNAME)), function(j){
+  tmp2 <- tmp[tmp$themeNAME == unique(tmp$themeNAME)[j],]
+  tmp2 <- tmp2[order(tmp2$clusterNAME, tmp2$Proximity, tmp2$projectSTATUS),]
+  F.hierarcplot(col2L = 0, col3L = 0.15, col4L = 0.32, col5L = 0.50, col5R = 1, 
+              wrapsize1=9, wrapsize2=12, wrapsize3=15, wrapsize4=22, wrapsize5=72,
+              fontsize1=1, fontsize2=1, fontsize3=1, fontsize4=0.75, fontsize5=0.7, 
+              dat=tmp2, numcols=4, domcol="DomainColour", thmcol="DomainColour",  cluscol="white", 
+              projcol="ProximityColour", detcol="StatusColour", statustoinclude = statustoinclude)
+  # Status legend
+    par(new=TRUE)
+
+    legendsplits <- seq(0, 0.36, by=.04)
+
+    status.legend.included <- status[status$projectSTATUS %in% statustoinclude,]
+    
+    statcoor <- data.frame(L=rep(0, times=length(unique(status.legend.included$projectSTATUS))),
+                       R=rep(0.14, times=length(unique(status.legend.included$projectSTATUS))),
+                       B=legendsplits[1:length(unique(status.legend.included$projectSTATUS))],
+                       T=legendsplits[2:(1+length(unique(status.legend.included$projectSTATUS)))])
+
+  
+  allcoor <- rbind(statcoor)
+
+  alltext <- as.character(status.legend.included$projectSTATUS)
+  statcol <- as.character(status.legend.included$StatusColour)
+  wraplength <- rep(90, each=nrow(allcoor))
+
+  t <- trash <- split.screen(as.matrix(rbind(statcoor)))
+
+  for(i in 1:length(alltext)) {
+   par(bg=statcol[i])
+   screen(i)
+   par(mar = c(0, 0, 0, 0))
+   text(.5,.5,paste(strwrap(alltext[i], wraplength[i]), collapse="\n"))
+   box()
+   par(bg="white")
+   }
+
+  close.screen(all.screens = TRUE)
+  
+  # proximity legend
+    par(new=TRUE)
+
+    legendsplits <- seq(0.84, 1, by=.04)
+
+    proximitycoor <- data.frame(L=rep(0, times=length(unique(proximity$Proximity))),
+                       R=rep(0.14, times=length(unique(proximity$Proximity))),
+                       B=legendsplits[(length(legendsplits)-(length(unique(proximity$Proximity)))):(length(legendsplits)-1)],
+                       T=legendsplits[(length(legendsplits)-(length(unique(proximity$Proximity))-1)):length(legendsplits)])
+  allcoor <- rbind(proximitycoor)
+
+  alltext <- as.character(proximity$Proximity)
+  proxcol <- as.character(proximity$ProximityColour)
+  wraplength <- rep(90, each=nrow(allcoor))
+
+  t <- trash <- split.screen(as.matrix(rbind(proximitycoor)))
+
+  for(i in 1:length(alltext)) {
+   par(bg=proxcol[i])
+   screen(i)
+   par(mar = c(0, 0, 0, 0))
+   text(.5,.5,paste(strwrap(alltext[i], wraplength[i]), collapse="\n"))
+   box()
+   par(bg="white")
+   }
+
+  close.screen(all.screens = TRUE)
+
+})
+```
+
+# `r levels(projs$domainNAME)[4]`
+
+All BAM activities are supported by essential project management tasks, including the creation and revision of long-term institutional structure and legacy, coordination of team members and work plans, solicitation of funding, and other administrative duties.
+
+``` {r, echo=F, eval=T, fig.height=2, fig.width=16.5, dpi=100, dev="jpeg"}
+allcoor <- data.frame(L=c(0, 0.25, 0.5, 0.75),
+                      R=c(0.25, 0.5, 0.75, 1),
+                      B=rep(0, times=4),
+                      T=rep(1, times=4))
+
+trash <- split.screen(as.matrix(allcoor))
+
+alltext <- c("Theme", "Cluster", "Project", "Purpose")
+
+for(i in 1:length(trash)) {
+ screen(i)
+ par(mar = c(0, 0, 0, 0))
+ text(.5,.5,alltext[i], cex=2)
+ box()
+ par(bg="white")
+ }
+
+close.screen(all.screens = TRUE)
+
+```
+
+
+``` {r Fig.Domain4, fig.height=5, fig.width=8.5, dpi=100, dev='jpeg', fig.path="figures/", eval=T, echo=F}
+tmp <- projs[projs$domainNAME %in% levels(projs$domainNAME)[4],]
+trash <- lapply(1:length(unique(tmp$themeNAME)), function(j){
+  tmp2 <- tmp[tmp$themeNAME == unique(tmp$themeNAME)[j],]
+  tmp2 <- tmp2[order(tmp2$clusterNAME, tmp2$Proximity, tmp2$projectSTATUS),]
+  F.hierarcplot(col2L = 0, col3L = 0.15, col4L = 0.32, col5L = 0.54, col5R = 1, 
+              wrapsize1=9, wrapsize2=12, wrapsize3=15, wrapsize4=25, wrapsize5=71,
+              fontsize1=1, fontsize2=1, fontsize3=1, fontsize4=0.75, fontsize5=0.7, 
+              dat=tmp2, numcols=4, domcol="DomainColour", thmcol="DomainColour",  cluscol="white", 
+              projcol="ProximityColour", detcol="StatusColour", statustoinclude = statustoinclude)
+  # Status legend
+    par(new=TRUE)
+
+    legendsplits <- seq(0, 0.36, by=.04)
+
+    status.legend.included <- status[status$projectSTATUS %in% statustoinclude,]
+    
+    statcoor <- data.frame(L=rep(0, times=length(unique(status.legend.included$projectSTATUS))),
+                       R=rep(0.14, times=length(unique(status.legend.included$projectSTATUS))),
+                       B=legendsplits[1:length(unique(status.legend.included$projectSTATUS))],
+                       T=legendsplits[2:(1+length(unique(status.legend.included$projectSTATUS)))])
+
+  
+  allcoor <- rbind(statcoor)
+
+  alltext <- as.character(status.legend.included$projectSTATUS)
+  statcol <- as.character(status.legend.included$StatusColour)
+  wraplength <- rep(90, each=nrow(allcoor))
+
+  t <- trash <- split.screen(as.matrix(rbind(statcoor)))
+
+  for(i in 1:length(alltext)) {
+   par(bg=statcol[i])
+   screen(i)
+   par(mar = c(0, 0, 0, 0))
+   text(.5,.5,paste(strwrap(alltext[i], wraplength[i]), collapse="\n"))
+   box()
+   par(bg="white")
+   }
+
+  close.screen(all.screens = TRUE)
+  
+  # proximity legend
+    par(new=TRUE)
+
+    legendsplits <- seq(0.84, 1, by=.04)
+
+    proximitycoor <- data.frame(L=rep(0, times=length(unique(proximity$Proximity))),
+                       R=rep(0.14, times=length(unique(proximity$Proximity))),
+                       B=legendsplits[(length(legendsplits)-(length(unique(proximity$Proximity)))):(length(legendsplits)-1)],
+                       T=legendsplits[(length(legendsplits)-(length(unique(proximity$Proximity))-1)):length(legendsplits)])
+  allcoor <- rbind(proximitycoor)
+
+  alltext <- as.character(proximity$Proximity)
+  proxcol <- as.character(proximity$ProximityColour)
+  wraplength <- rep(90, each=nrow(allcoor))
+
+  t <- trash <- split.screen(as.matrix(rbind(proximitycoor)))
+
+  for(i in 1:length(alltext)) {
+   par(bg=proxcol[i])
+   screen(i)
+   par(mar = c(0, 0, 0, 0))
+   text(.5,.5,paste(strwrap(alltext[i], wraplength[i]), collapse="\n"))
+   box()
+   par(bg="white")
+   }
+
+  close.screen(all.screens = TRUE)
+
+})
+```
+
